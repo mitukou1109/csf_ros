@@ -1,0 +1,33 @@
+name: pre-commit
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - uses: pre-commit/action@v3.0.1
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "apply formatting by pre-commit"
+          add_options: "-u"
+        if: ${{ !cancelled() }}

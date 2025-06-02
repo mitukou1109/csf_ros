@@ -1,0 +1,10 @@
+# Based on https://github.com/autowarefoundation/autoware_universe/blob/main/.prettierrc.yaml
+
+printWidth: 100
+tabWidth: 2
+overrides:
+  - files: package.xml
+    options:
+      printWidth: 1000
+      xmlSelfClosingSpace: false
+      xmlWhitespaceSensitivity: ignore
