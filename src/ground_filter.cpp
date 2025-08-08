@@ -2,6 +2,7 @@
 
 #include <rclcpp_components/register_node_macro.hpp>
 
+#include <pcl/filters/crop_box.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -20,6 +21,9 @@ GroundFilter::GroundFilter(
   const std::string & node_name, const std::string & ns, const rclcpp::NodeOptions & options)
 : Node(node_name, ns, options)
 {
+  crop_range_min_ = declare_parameter<std::vector<double>>("crop_range.min", std::vector<double>{});
+  crop_range_max_ = declare_parameter<std::vector<double>>("crop_range.max", std::vector<double>{});
+
   csf_.params.bSloopSmooth = declare_parameter<bool>("enable_post_processing");
   csf_.params.class_threshold = declare_parameter<double>("class_threshold");
   csf_.params.cloth_resolution = declare_parameter<double>("cloth_resolution");
@@ -38,27 +42,41 @@ GroundFilter::GroundFilter(
 
 void GroundFilter::pointsCallback(const sensor_msgs::msg::PointCloud2::UniquePtr msg)
 {
-  auto input_points = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  const auto input_points = std::make_shared<PCLPointCloud>();
   pcl::fromROSMsg(*msg, *input_points);
+
+  if (crop_range_min_.size() == 3 && crop_range_max_.size() == 3) {
+    pcl::CropBox<PCLPoint> crop_box;
+    crop_box.setInputCloud(input_points);
+    crop_box.setMin(
+      Eigen::Vector4f{
+        static_cast<float>(crop_range_min_[0]), static_cast<float>(crop_range_min_[1]),
+        static_cast<float>(crop_range_min_[2]), 1.0f});
+    crop_box.setMax(
+      Eigen::Vector4f{
+        static_cast<float>(crop_range_max_[0]), static_cast<float>(crop_range_max_[1]),
+        static_cast<float>(crop_range_max_[2]), 1.0f});
+    crop_box.filter(*input_points);
+  }
 
   std::vector<csf::Point> csf_points(input_points->size());
   std::transform(
     input_points->begin(), input_points->end(), csf_points.begin(),
-    [](const pcl::PointXYZI & point) { return csf::Point{point.x, point.y, point.z}; });
+    [](const PCLPoint & point) { return csf::Point{point.x, point.y, point.z}; });
   csf_.setPointCloud(csf_points);
 
   auto ground_indices = std::make_shared<pcl::Indices>();
   auto off_ground_indices = std::make_shared<pcl::Indices>();
   csf_.do_filtering(*ground_indices, *off_ground_indices, false);
 
-  pcl::ExtractIndices<pcl::PointXYZI> extract_indices;
+  pcl::ExtractIndices<PCLPoint> extract_indices;
   extract_indices.setInputCloud(input_points);
 
-  auto ground_points = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  auto ground_points = std::make_shared<PCLPointCloud>();
   extract_indices.setIndices(ground_indices);
   extract_indices.filter(*ground_points);
 
-  auto off_ground_points = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  auto off_ground_points = std::make_shared<PCLPointCloud>();
   extract_indices.setIndices(off_ground_indices);
   extract_indices.filter(*off_ground_points);
 
