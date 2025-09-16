@@ -30,6 +30,7 @@ private:
 
   std::vector<double> crop_range_min_;
   std::vector<double> crop_range_max_;
+  bool debug_;
 
   CSF csf_;
 

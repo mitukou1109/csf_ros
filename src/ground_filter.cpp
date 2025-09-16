@@ -6,6 +6,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,6 +24,7 @@ GroundFilter::GroundFilter(
 {
   crop_range_min_ = declare_parameter<std::vector<double>>("crop_range.min", std::vector<double>{});
   crop_range_max_ = declare_parameter<std::vector<double>>("crop_range.max", std::vector<double>{});
+  debug_ = declare_parameter<bool>("debug");
 
   csf_.params.bSloopSmooth = declare_parameter<bool>("enable_post_processing");
   csf_.params.class_threshold = declare_parameter<double>("class_threshold");
@@ -67,7 +69,13 @@ void GroundFilter::pointsCallback(const sensor_msgs::msg::PointCloud2::UniquePtr
 
   auto ground_indices = std::make_shared<pcl::Indices>();
   auto off_ground_indices = std::make_shared<pcl::Indices>();
+  if (!debug_) {
+    std::cout.setstate(std::ios_base::failbit);
+  }
   csf_.do_filtering(*ground_indices, *off_ground_indices, false);
+  if (!debug_) {
+    std::cout.clear();
+  }
 
   pcl::ExtractIndices<PCLPoint> extract_indices;
   extract_indices.setInputCloud(input_points);
