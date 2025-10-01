@@ -26,7 +26,7 @@ private:
   using PCLPoint = pcl::PointXYZI;
   using PCLPointCloud = pcl::PointCloud<PCLPoint>;
 
-  void pointsCallback(const sensor_msgs::msg::PointCloud2::UniquePtr msg);
+  void pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg);
 
   std::vector<double> crop_range_min_;
   std::vector<double> crop_range_max_;

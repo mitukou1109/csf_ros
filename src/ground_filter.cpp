@@ -42,7 +42,7 @@ GroundFilter::GroundFilter(
     "points", 1, std::bind(&GroundFilter::pointsCallback, this, std::placeholders::_1));
 }
 
-void GroundFilter::pointsCallback(const sensor_msgs::msg::PointCloud2::UniquePtr msg)
+void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
 {
   const auto input_points = std::make_shared<PCLPointCloud>();
   pcl::fromROSMsg(*msg, *input_points);
@@ -88,15 +88,15 @@ void GroundFilter::pointsCallback(const sensor_msgs::msg::PointCloud2::UniquePtr
   extract_indices.setIndices(off_ground_indices);
   extract_indices.filter(*off_ground_points);
 
-  sensor_msgs::msg::PointCloud2 ground_points_msg;
-  pcl::toROSMsg(*ground_points, ground_points_msg);
-  ground_points_msg.header = msg->header;
-  ground_points_pub_->publish(ground_points_msg);
+  auto ground_points_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
+  pcl::toROSMsg(*ground_points, *ground_points_msg);
+  ground_points_msg->header = msg->header;
+  ground_points_pub_->publish(std::move(ground_points_msg));
 
-  sensor_msgs::msg::PointCloud2 off_ground_points_msg;
-  pcl::toROSMsg(*off_ground_points, off_ground_points_msg);
-  off_ground_points_msg.header = msg->header;
-  off_ground_points_pub_->publish(off_ground_points_msg);
+  auto off_ground_points_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
+  pcl::toROSMsg(*off_ground_points, *off_ground_points_msg);
+  off_ground_points_msg->header = msg->header;
+  off_ground_points_pub_->publish(std::move(off_ground_points_msg));
 }
 }  // namespace csf_ros
 
