@@ -1,5 +1,6 @@
 #include "csf_ros/ground_filter.hpp"
 
+#include <pcl_ros/transforms.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 
 #include <pcl/filters/crop_box.h>
@@ -25,6 +26,9 @@ GroundFilter::GroundFilter(
 {
   initializeParameters();
 
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
+  tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+
   ground_points_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/ground_points", 1);
 
   off_ground_points_pub_ =
@@ -43,6 +47,16 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
 
   const auto input_points = std::make_shared<PCLPointCloud>();
   pcl::fromROSMsg(*msg, *input_points);
+
+  if (gravity_aligned_frame_ != "") {
+    try {
+      pcl_ros::transformPointCloud(
+        gravity_aligned_frame_, *input_points, *input_points, *tf_buffer_);
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR(this->get_logger(), e.what());
+      return;
+    }
+  }
 
   if (crop_range_min_.size() == 3 && crop_range_max_.size() == 3) {
     pcl::CropBox<PCLPoint> crop_box;
@@ -81,16 +95,23 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
   auto ground_points_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
   pcl::toROSMsg(*ground_points, *ground_points_msg);
   ground_points_msg->header = msg->header;
+  if (!gravity_aligned_frame_.empty()) {
+    ground_points_msg->header.frame_id = gravity_aligned_frame_;
+  }
   ground_points_pub_->publish(std::move(ground_points_msg));
 
   auto off_ground_points_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
   pcl::toROSMsg(*off_ground_points, *off_ground_points_msg);
   off_ground_points_msg->header = msg->header;
+  if (!gravity_aligned_frame_.empty()) {
+    off_ground_points_msg->header.frame_id = gravity_aligned_frame_;
+  }
   off_ground_points_pub_->publish(std::move(off_ground_points_msg));
 }
 
 void GroundFilter::initializeParameters()
 {
+  gravity_aligned_frame_ = declare_parameter<std::string>("gravity_aligned_frame", "");
   crop_range_min_ = declare_parameter<std::vector<double>>("crop_range.min", std::vector<double>{});
   crop_range_max_ = declare_parameter<std::vector<double>>("crop_range.max", std::vector<double>{});
 
