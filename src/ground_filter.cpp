@@ -126,10 +126,12 @@ void GroundFilter::initializeParameters()
   csf_.setIterationTerminationThreshold(
     declare_parameter<double>(
       "iteration_termination_threshold", csf_.getIterationTerminationThreshold()));
-  csf_.setClassThreshold(
-    declare_parameter<double>("classification_threshold", csf_.getClassThreshold()));
   csf_.enablePostProcessing(
     declare_parameter<bool>("enable_post_processing", csf_.isPostProcessingEnabled()));
+  csf_.setSlopeFittingThreshold(
+    declare_parameter<double>("slope_fitting_threshold", csf_.getSlopeFittingThreshold()));
+  csf_.setClassThreshold(
+    declare_parameter<double>("classification_threshold", csf_.getClassThreshold()));
 
   parameter_event_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
   parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
@@ -162,11 +164,14 @@ void GroundFilter::initializeParameters()
       csf_.setIterationTerminationThreshold(param.as_double());
     }));
   parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
-    "classification_threshold",
-    [this](const rclcpp::Parameter & param) { csf_.setClassThreshold(param.as_double()); }));
-  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
     "enable_post_processing",
     [this](const rclcpp::Parameter & param) { csf_.enablePostProcessing(param.as_bool()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "slope_fitting_threshold",
+    [this](const rclcpp::Parameter & param) { csf_.setSlopeFittingThreshold(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "classification_threshold",
+    [this](const rclcpp::Parameter & param) { csf_.setClassThreshold(param.as_double()); }));
 }
 }  // namespace csf_ros
 
