@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace csf_ros
@@ -22,16 +23,7 @@ GroundFilter::GroundFilter(
   const std::string & node_name, const std::string & ns, const rclcpp::NodeOptions & options)
 : Node(node_name, ns, options)
 {
-  crop_range_min_ = declare_parameter<std::vector<double>>("crop_range.min", std::vector<double>{});
-  crop_range_max_ = declare_parameter<std::vector<double>>("crop_range.max", std::vector<double>{});
-  debug_ = declare_parameter<bool>("debug");
-
-  csf_.params.bSloopSmooth = declare_parameter<bool>("enable_post_processing");
-  csf_.params.class_threshold = declare_parameter<double>("class_threshold");
-  csf_.params.cloth_resolution = declare_parameter<double>("cloth_resolution");
-  csf_.params.interations = declare_parameter<int>("max_iterations");
-  csf_.params.rigidness = declare_parameter<int>("rigidness");
-  csf_.params.time_step = declare_parameter<double>("time_step");
+  initializeParameters();
 
   ground_points_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/ground_points", 1);
 
@@ -44,6 +36,11 @@ GroundFilter::GroundFilter(
 
 void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
 {
+  if (msg->data.empty()) {
+    RCLCPP_WARN(this->get_logger(), "Received empty point cloud");
+    return;
+  }
+
   const auto input_points = std::make_shared<PCLPointCloud>();
   pcl::fromROSMsg(*msg, *input_points);
 
@@ -61,21 +58,14 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
     crop_box.filter(*input_points);
   }
 
-  std::vector<csf::Point> csf_points(input_points->size());
-  std::transform(
-    input_points->begin(), input_points->end(), csf_points.begin(),
-    [](const PCLPoint & point) { return csf::Point{point.x, point.y, point.z}; });
-  csf_.setPointCloud(csf_points);
+  if (input_points->empty()) {
+    RCLCPP_WARN(this->get_logger(), "Point cloud is empty after crop box filtering");
+    return;
+  }
 
+  csf_.setInputCloud(input_points);
   auto ground_indices = std::make_shared<pcl::Indices>();
-  auto off_ground_indices = std::make_shared<pcl::Indices>();
-  if (!debug_) {
-    std::cout.setstate(std::ios_base::failbit);
-  }
-  csf_.do_filtering(*ground_indices, *off_ground_indices, false);
-  if (!debug_) {
-    std::cout.clear();
-  }
+  csf_.filter(*ground_indices);
 
   pcl::ExtractIndices<PCLPoint> extract_indices;
   extract_indices.setInputCloud(input_points);
@@ -85,7 +75,7 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
   extract_indices.filter(*ground_points);
 
   auto off_ground_points = std::make_shared<PCLPointCloud>();
-  extract_indices.setIndices(off_ground_indices);
+  extract_indices.setIndices(csf_.getRemovedIndices());
   extract_indices.filter(*off_ground_points);
 
   auto ground_points_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
@@ -97,6 +87,65 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
   pcl::toROSMsg(*off_ground_points, *off_ground_points_msg);
   off_ground_points_msg->header = msg->header;
   off_ground_points_pub_->publish(std::move(off_ground_points_msg));
+}
+
+void GroundFilter::initializeParameters()
+{
+  crop_range_min_ = declare_parameter<std::vector<double>>("crop_range.min", std::vector<double>{});
+  crop_range_max_ = declare_parameter<std::vector<double>>("crop_range.max", std::vector<double>{});
+
+  csf_.setClothResolution(declare_parameter<double>("cloth_resolution", csf_.getClothResolution()));
+  csf_.setClothMargin(declare_parameter<double>("cloth_margin", csf_.getClothMargin()));
+  csf_.setClothRigidness(declare_parameter<int>("cloth_rigidness", csf_.getClothRigidness()));
+  csf_.setClothInitialZOffset(
+    declare_parameter<double>("cloth_initial_z_offset", csf_.getClothInitialZOffset()));
+  csf_.setGravity(declare_parameter<double>("gravity", csf_.getGravity()));
+  csf_.setTimeStep(declare_parameter<double>("time_step", csf_.getTimeStep()));
+  csf_.setMaxIterations(declare_parameter<int>("max_iterations", csf_.getMaxIterations()));
+  csf_.setIterationTerminationThreshold(
+    declare_parameter<double>(
+      "iteration_termination_threshold", csf_.getIterationTerminationThreshold()));
+  csf_.setClassThreshold(
+    declare_parameter<double>("classification_threshold", csf_.getClassThreshold()));
+  csf_.enablePostProcessing(
+    declare_parameter<bool>("enable_post_processing", csf_.isPostProcessingEnabled()));
+
+  parameter_event_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "crop_range.min",
+    [this](const rclcpp::Parameter & param) { crop_range_min_ = param.as_double_array(); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "crop_range.max",
+    [this](const rclcpp::Parameter & param) { crop_range_max_ = param.as_double_array(); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "cloth_resolution",
+    [this](const rclcpp::Parameter & param) { csf_.setClothResolution(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "cloth_margin",
+    [this](const rclcpp::Parameter & param) { csf_.setClothMargin(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "cloth_rigidness",
+    [this](const rclcpp::Parameter & param) { csf_.setClothRigidness(param.as_int()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "cloth_initial_z_offset",
+    [this](const rclcpp::Parameter & param) { csf_.setClothInitialZOffset(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "gravity", [this](const rclcpp::Parameter & param) { csf_.setGravity(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "time_step", [this](const rclcpp::Parameter & param) { csf_.setTimeStep(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "max_iterations",
+    [this](const rclcpp::Parameter & param) { csf_.setMaxIterations(param.as_int()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "iteration_termination_threshold", [this](const rclcpp::Parameter & param) {
+      csf_.setIterationTerminationThreshold(param.as_double());
+    }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "classification_threshold",
+    [this](const rclcpp::Parameter & param) { csf_.setClassThreshold(param.as_double()); }));
+  parameter_callback_handles_.push_back(parameter_event_handler_->add_parameter_callback(
+    "enable_post_processing",
+    [this](const rclcpp::Parameter & param) { csf_.enablePostProcessing(param.as_bool()); }));
 }
 }  // namespace csf_ros
 

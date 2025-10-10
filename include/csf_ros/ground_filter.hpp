@@ -4,10 +4,11 @@
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-#include <CSF.h>
+#include <csf_pcl/cloth_simulation_filter.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,11 +29,15 @@ private:
 
   void pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg);
 
+  void initializeParameters();
+
   std::vector<double> crop_range_min_;
   std::vector<double> crop_range_max_;
-  bool debug_;
 
-  CSF csf_;
+  csf_pcl::ClothSimulationFilter<PCLPoint> csf_{true};
+
+  std::shared_ptr<rclcpp::ParameterEventHandler> parameter_event_handler_;
+  std::vector<rclcpp::ParameterCallbackHandle::SharedPtr> parameter_callback_handles_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_points_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr off_ground_points_pub_;

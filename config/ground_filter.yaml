@@ -5,4 +5,4 @@
     cloth_resolution: 2.0
     max_iterations: 500
     rigidness: 2
-    time_step: 0.65
+    time_step: 0.1

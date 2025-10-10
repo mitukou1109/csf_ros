@@ -13,7 +13,7 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   DIRECTORY src
 )
 target_link_libraries(${PROJECT_NAME}
-  CSF
+  csf_pcl::csf_pcl
 )
 
 rclcpp_components_register_node(${PROJECT_NAME}
