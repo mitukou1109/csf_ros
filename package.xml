@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>ROS 2 Wrapper for CSF</description>
   <maintainer email="mitukou1109@gmail.com">Mitsuhiro Sakamoto</maintainer>
-  <license>BSD</license>
+  <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
