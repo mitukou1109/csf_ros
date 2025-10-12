@@ -29,19 +29,19 @@ GroundFilter::GroundFilter(
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
 
-  ground_points_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/ground_points", 1);
+  ground_points_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("~/ground_points", 1);
 
   off_ground_points_pub_ =
-    this->create_publisher<sensor_msgs::msg::PointCloud2>("~/off_ground_points", 1);
+    create_publisher<sensor_msgs::msg::PointCloud2>("~/off_ground_points", 1);
 
-  points_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+  points_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     "points", 1, std::bind(&GroundFilter::pointsCallback, this, std::placeholders::_1));
 }
 
 void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
 {
   if (msg->data.empty()) {
-    RCLCPP_WARN(this->get_logger(), "Received empty point cloud");
+    RCLCPP_WARN(get_logger(), "Received empty point cloud");
     return;
   }
 
@@ -53,7 +53,7 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
       pcl_ros::transformPointCloud(
         gravity_aligned_frame_, *input_points, *input_points, *tf_buffer_);
     } catch (const std::exception & e) {
-      RCLCPP_ERROR(this->get_logger(), e.what());
+      RCLCPP_ERROR(get_logger(), e.what());
       return;
     }
   }
@@ -73,7 +73,7 @@ void GroundFilter::pointsCallback(sensor_msgs::msg::PointCloud2::UniquePtr msg)
   }
 
   if (input_points->empty()) {
-    RCLCPP_WARN(this->get_logger(), "Point cloud is empty after crop box filtering");
+    RCLCPP_WARN(get_logger(), "Point cloud is empty after crop box filtering");
     return;
   }
 
