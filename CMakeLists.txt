@@ -21,7 +21,4 @@ rclcpp_components_register_node(${PROJECT_NAME}
   EXECUTABLE ground_filter_node
 )
 
-ament_auto_package(
-  INSTALL_TO_SHARE
-    config
-)
+ament_auto_package()
