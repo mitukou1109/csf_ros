@@ -36,17 +36,20 @@ private:
   std::string gravity_aligned_frame_;
   std::vector<double> crop_range_min_;
   std::vector<double> crop_range_max_;
+  bool publish_off_ground_points_;
+  bool publish_cloth_points_;
 
   std::shared_ptr<rclcpp::ParameterEventHandler> parameter_event_handler_;
   std::vector<rclcpp::ParameterCallbackHandle::SharedPtr> parameter_callback_handles_;
 
-  csf_pcl::ClothSimulationFilter<PCLPoint> csf_{true};
+  std::unique_ptr<csf_pcl::ClothSimulationFilter<PCLPoint>> csf_;
 
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_points_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr off_ground_points_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloth_points_pub_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr points_sub_;
 };
