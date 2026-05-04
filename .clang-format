@@ -1,5 +1,3 @@
-# Based on https://github.com/autowarefoundation/autoware_universe/blob/main/.clang-format
-
 Language: Cpp
 BasedOnStyle: Google
 
